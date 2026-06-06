@@ -1,0 +1,19 @@
+{
+  "name": "contact_extraction",
+  "description": "Pull contact fields out of a sentence — tests nested/optional fields.",
+  "ci": true,
+  "match": "fields",
+  "match_fields": ["name", "email"],
+  "prompt": "Extract the contact's name and email from: 'Reach Dana Lee at dana.lee@example.org for scheduling.' Return name and email.",
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "name": {"type": "string"},
+      "email": {"type": "string", "format": "email"}
+    },
+    "required": ["name", "email"],
+    "additionalProperties": false
+  },
+  "expected": {"name": "Dana Lee", "email": "dana.lee@example.org"},
+  "fixture": {"name": "Dana Lee", "email": "dana.lee@example.org"}
+}

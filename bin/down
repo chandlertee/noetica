@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#
+# Stop the Noetica stack. Passes every profile so containers brought up under
+# any of them get torn down regardless of which profile this run would default
+# to. Volumes under ./volumes are preserved (models, chat data, cache).
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "→ Stopping Noetica"
+( cd "$REPO_ROOT" && docker compose \
+    --profile cpu --profile gpu --profile full --profile train down )

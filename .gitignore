@@ -1,0 +1,27 @@
+# Runtime data (models, chat data, cache, training artifacts)
+volumes/
+cache/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+htmlcov/
+.coverage
+.coverage.*
+
+# Training / model artifacts
+*.gguf
+outputs/
+adapters/
+
+# Env
+.env
+.env.local

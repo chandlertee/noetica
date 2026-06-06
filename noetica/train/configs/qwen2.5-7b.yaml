@@ -1,0 +1,24 @@
+# QLoRA recipe for Qwen2.5-7B-Instruct via Unsloth.
+# Run: python -m noetica.train.finetune --config noetica/train/configs/qwen2.5-7b.yaml
+# Needs an NVIDIA GPU (~16 GB). For the no-GPU path use the Colab notebook.
+
+base_model: unsloth/Qwen2.5-7B-Instruct
+max_seq_length: 2048
+load_in_4bit: true            # QLoRA: 4-bit base + trainable LoRA adapter
+
+dataset: examples/data/sample_chat.jsonl
+val_fraction: 0.1
+
+lora_r: 16
+lora_alpha: 16
+lora_dropout: 0.0
+
+learning_rate: 0.0002
+num_train_epochs: 1.0
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+warmup_ratio: 0.03
+weight_decay: 0.01
+seed: 3407
+
+output_dir: outputs/qwen2.5-7b-noetica

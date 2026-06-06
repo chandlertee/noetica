@@ -1,0 +1,17 @@
+{
+  "name": "sentiment_classification",
+  "description": "Classify sentiment into a fixed enum — tests constrained outputs.",
+  "ci": true,
+  "match": "exact",
+  "prompt": "Classify the sentiment of this review as positive, negative, or neutral. Review: \"Absolutely loved it, would buy again.\" Return {\"sentiment\": <label>}.",
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]}
+    },
+    "required": ["sentiment"],
+    "additionalProperties": false
+  },
+  "expected": {"sentiment": "positive"},
+  "fixture": {"sentiment": "positive"}
+}

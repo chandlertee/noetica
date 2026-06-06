@@ -1,0 +1,20 @@
+{
+  "name": "movie_extraction",
+  "description": "Extract structured movie facts from a free-text description.",
+  "ci": true,
+  "match": "fields",
+  "match_fields": ["title", "year"],
+  "prompt": "Extract movie info from: Blade Runner (1982), directed by Ridley Scott. Return title, year, and director.",
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "year": {"type": "integer", "minimum": 1888},
+      "director": {"type": "string"}
+    },
+    "required": ["title", "year", "director"],
+    "additionalProperties": false
+  },
+  "expected": {"title": "Blade Runner", "year": 1982, "director": "Ridley Scott"},
+  "fixture": {"title": "Blade Runner", "year": 1982, "director": "Ridley Scott"}
+}

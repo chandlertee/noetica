@@ -1,0 +1,127 @@
+# docker-compose.yaml — the Noetica stack
+#
+# Front doors over one Ollama model registry:
+#   ollama       model runtime + registry        :11434   (gpu/full)
+#   open-webui   chat workbench (use it)          :3000    (cpu/gpu/full)
+#   noetica-api  structured-output API (build)    :8001    (cpu/gpu/full)
+#   noetica-train  fine-tune (extend it)          —        (train, one-shot)
+#
+# Profiles:
+#   cpu   laptop / no NVIDIA. Ollama runs natively on the host; the api and
+#         chat containers point at host.docker.internal. Start with:
+#             OLLAMA_URL=http://host.docker.internal:11434 \
+#             docker compose --profile cpu up -d
+#   gpu   / full — containerized Ollama with an NVIDIA GPU + chat + api:
+#             docker compose --profile full up -d
+#   train one-shot QLoRA fine-tune (needs an NVIDIA GPU):
+#             docker compose --profile train run --rm noetica-train \
+#               python -m noetica.train.finetune --config noetica/train/configs/qwen2.5-7b.yaml
+#
+# Use ./bin/up to pick the profile for your host automatically.
+# Env: copy .env.example → .env and edit. Compose auto-loads it.
+
+services:
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    profiles: ["gpu", "full"]
+    volumes:
+      - ./volumes/ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks: [noetica-net]
+
+  noetica-api:
+    build: .
+    image: noetica-api:latest
+    container_name: noetica-api
+    profiles: ["cpu", "gpu", "full"]
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - NOETICA_CACHE_DIR=/data/cache
+      - NOETICA_API_KEY=${NOETICA_API_KEY:-}
+      - NOETICA_CORS_ORIGINS=${NOETICA_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - MODEL_TEXT=${MODEL_TEXT:-qwen2.5:7b-instruct}
+      - MODEL_VISION=${MODEL_VISION:-qwen2.5vl:7b}
+      - MODEL_EMBED=${MODEL_EMBED:-nomic-embed-text}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-180}
+    volumes:
+      - ./volumes/cache:/data/cache
+    ports:
+      - "8001:8001"
+    # Wait for Ollama on the gpu/full profiles; on cpu there's no ollama
+    # container, so the dependency is a no-op (required: false).
+    depends_on:
+      ollama:
+        condition: service_healthy
+        required: false
+    extra_hosts:
+      # Makes host.docker.internal resolvable on Linux (cpu profile, where
+      # Ollama runs on the host outside Docker).
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks: [noetica-net]
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    profiles: ["cpu", "gpu", "full"]
+    volumes:
+      - ./volumes/open-webui:/app/backend/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+        required: false
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=${OLLAMA_URL:-http://ollama:11434}
+      # First-run convenience: no login wall. Set WEBUI_AUTH=True before any
+      # LAN exposure (see SECURITY.md).
+      - WEBUI_AUTH=${WEBUI_AUTH:-False}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks: [noetica-net]
+
+  # One-shot training container. Not started by `up`; invoke with
+  # `docker compose --profile train run --rm noetica-train ...`.
+  noetica-train:
+    build:
+      context: .
+      dockerfile: Dockerfile.train
+    image: noetica-train:latest
+    profiles: ["train"]
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+    volumes:
+      - ./volumes/train:/workspace/out
+      - ./noetica:/workspace/noetica:ro
+      - ./examples:/workspace/examples:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks: [noetica-net]
+
+networks:
+  noetica-net:
+    driver: bridge

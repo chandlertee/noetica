@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+#
+# Start the Noetica stack — chat (Open WebUI) + the structured-output API over a
+# single local Ollama registry.
+#
+# Picks a compose profile from the host shape:
+#   macOS  → cpu  (Ollama runs natively on the host; api + chat point at it)
+#   else   → full (containerized Ollama + open-webui + api, NVIDIA GPU)
+#
+# Override with NOETICA_PROFILE=cpu|gpu|full.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  NOETICA_PROFILE="${NOETICA_PROFILE:-cpu}"
+else
+  NOETICA_PROFILE="${NOETICA_PROFILE:-full}"
+fi
+
+if [[ "$NOETICA_PROFILE" == "cpu" ]]; then
+  # The cpu profile has no in-network ollama container; the api + chat reach
+  # host-side Ollama. Compose defaults OLLAMA_URL to http://ollama:11434
+  # (correct for gpu/full); override it here.
+  export OLLAMA_URL="${OLLAMA_URL:-http://host.docker.internal:11434}"
+  if ! curl -sf "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+    echo "⚠ Ollama not reachable on localhost:11434." >&2
+    echo "  The cpu profile uses host-side Ollama. Start it first:" >&2
+    echo "      ollama serve &" >&2
+    echo "      ollama pull qwen2.5:7b-instruct nomic-embed-text" >&2
+  fi
+fi
+
+echo "→ Starting Noetica (profile=$NOETICA_PROFILE)"
+( cd "$REPO_ROOT" && docker compose --profile "$NOETICA_PROFILE" up -d --build )
+
+echo
+echo "✓ Noetica is up. Give the health checks ~5s, then open:"
+echo "    chat     http://localhost:3000/      ← start here (Open WebUI)"
+echo "    api      http://localhost:8001/v1/health"
+echo "    docs     http://localhost:8001/docs"
+echo "    metrics  http://localhost:8001/metrics"
+if [[ "$NOETICA_PROFILE" != "cpu" ]]; then
+  echo "    ollama   http://localhost:11434/"
+fi

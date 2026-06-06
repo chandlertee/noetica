@@ -1,0 +1,29 @@
+# GPU training image for the `train` compose profile (the [train] extra).
+# Heavy by design — torch + CUDA + unsloth. Kept entirely separate from the
+# lightweight serve image (Dockerfile) so chat + API never pull this.
+#
+# Build/run via compose:
+#   docker compose --profile train run --rm noetica-train \
+#     python -m noetica.train.finetune --config noetica/train/configs/qwen2.5-7b.yaml
+#
+# Requires the NVIDIA Container Toolkit on the host.
+
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pip git build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Install the package with the [train] extra. Copy only metadata first for layer
+# caching; the source is bind-mounted at runtime by the compose service.
+COPY pyproject.toml README.md ./
+COPY noetica ./noetica
+RUN pip3 install --no-cache-dir ".[train]"
+
+CMD ["python3", "-m", "noetica.train.finetune", "--help"]
