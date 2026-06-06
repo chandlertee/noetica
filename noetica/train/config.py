@@ -51,6 +51,12 @@ class TrainConfig:
     # Output
     output_dir: str = "outputs/qwen2.5-7b-noetica"
 
+    # When set, also emit a quantized GGUF after training (via Unsloth's
+    # save_pretrained_gguf) so the export step is torch-free: just
+    # `export_ollama --gguf <file>` on the host where Ollama runs. Set to null
+    # to only save the LoRA adapter.
+    gguf_quantization: str | None = "q4_k_m"
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TrainConfig:
         known = {f for f in cls.__dataclass_fields__}  # noqa: C416

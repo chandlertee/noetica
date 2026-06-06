@@ -22,3 +22,7 @@ weight_decay: 0.01
 seed: 3407
 
 output_dir: outputs/qwen2.5-7b-noetica
+
+# Also emit a quantized GGUF after training so the export step is torch-free
+# (`export_ollama --gguf`). Set to null to save only the LoRA adapter.
+gguf_quantization: q4_k_m
