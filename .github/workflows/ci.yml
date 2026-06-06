@@ -91,7 +91,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+      # Run the gitleaks binary directly rather than the action: it needs no
+      # GitHub API access, so it behaves identically on push, PRs, and
+      # Dependabot PRs (which only get a read-only token), and matches what we
+      # run locally and in pre-commit.
+      - name: Gitleaks (full history)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks detect --source . --log-opts="--all" --redact --verbose
