@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `train`: the QLoRA recipe can now emit a quantized **GGUF** directly after
+  training (`gguf_quantization` in the config, on by default) so the export step
+  is torch-free — `export_ollama --gguf` on the host.
+- `train`: a from-zero **Windows + WSL2 Docker-GPU runbook** for the full
+  train → serve → chat → eval loop on one box (`noetica/train/README.md`).
+
+### Changed
+- `Dockerfile.train`: pinned the CUDA base to 12.4 (aligns with torch's bundled
+  CUDA runtime + Unsloth) and added `cmake`/`curl` for Unsloth's GGUF build.
+  Dependabot now ignores CUDA minor/major bumps for this image.
+
 ## [1.0.0] — 2026-06-06
 
 First public release. Noetica is a fully self-hosted local-AI stack over a single

@@ -24,3 +24,9 @@ updates:
     schedule:
       interval: "weekly"
     labels: ["dependencies", "docker"]
+    ignore:
+      # The training image's CUDA base must stay aligned with torch's bundled
+      # CUDA runtime — don't auto-bump it across minor/major versions.
+      - dependency-name: "nvidia/cuda"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]

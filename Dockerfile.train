@@ -6,16 +6,22 @@
 #   docker compose --profile train run --rm noetica-train \
 #     python -m noetica.train.finetune --config noetica/train/configs/qwen2.5-7b.yaml
 #
-# Requires the NVIDIA Container Toolkit on the host.
+# Requires the NVIDIA Container Toolkit on the host (Linux) or Docker Desktop +
+# WSL2 with a recent NVIDIA driver (Windows). See noetica/train/README.md.
 
-FROM nvidia/cuda:13.3.0-cudnn-runtime-ubuntu22.04
+# Pin CUDA 12.4: PyPI torch wheels bundle a CUDA 12.x runtime and Unsloth is
+# tested against 12.x. Don't let Dependabot bump this to a CUDA the torch
+# wheels don't match (the dependabot config ignores cuda minor/major bumps).
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive
 
+# build-essential + cmake + curl: Unsloth's save_pretrained_gguf builds llama.cpp.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-pip git build-essential \
+ && apt-get install -y --no-install-recommends \
+        python3 python3-pip git build-essential cmake curl \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

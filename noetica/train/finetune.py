@@ -96,11 +96,39 @@ def run(config: TrainConfig) -> str:
     print(f"→ saving LoRA adapter to {config.output_dir}")
     model.save_pretrained(config.output_dir)
     tokenizer.save_pretrained(config.output_dir)
-    print(
-        "✓ done. Next: export to Ollama —\n"
-        f"    python -m noetica.train.export_ollama \\\n"
-        f"      --base {config.base_model} --adapter {config.output_dir} --name my-model"
-    )
+
+    gguf_ready = False
+    if config.gguf_quantization:
+        # Emit a ready-to-serve GGUF so the export step needs no torch/llama.cpp:
+        # just `export_ollama --gguf` on the host where Ollama runs. Unsloth
+        # merges the adapter + builds/quantizes via its bundled llama.cpp.
+        print(f"→ exporting GGUF ({config.gguf_quantization}) via save_pretrained_gguf")
+        try:
+            model.save_pretrained_gguf(
+                config.output_dir,
+                tokenizer,
+                quantization_method=config.gguf_quantization,
+            )
+            gguf_ready = True
+        except Exception as exc:  # pragma: no cover - needs a GPU + llama.cpp build
+            print(
+                f"⚠ GGUF export failed ({exc}). The LoRA adapter is still saved — "
+                "export later with the --base/--adapter path."
+            )
+
+    if gguf_ready:
+        print(
+            f"✓ done. A quantized GGUF is in {config.output_dir}/. On the host where "
+            "Ollama runs (no torch needed):\n"
+            f"    python -m noetica.train.export_ollama \\\n"
+            f"      --gguf {config.output_dir}/<model>.{config.gguf_quantization}.gguf --name my-model"
+        )
+    else:
+        print(
+            "✓ done. Next: export to Ollama —\n"
+            f"    python -m noetica.train.export_ollama \\\n"
+            f"      --base {config.base_model} --adapter {config.output_dir} --name my-model"
+        )
     return config.output_dir
 
 
