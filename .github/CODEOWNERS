@@ -1,0 +1,3 @@
+# Default owner for everything in the repo.
+# Activates once "require Code Owner review" is enabled on the main ruleset.
+* @chandlertee
