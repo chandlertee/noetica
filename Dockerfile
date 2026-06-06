@@ -5,7 +5,7 @@
 # This image is intentionally light: no GPU, no torch. The GPU work happens in
 # the `ollama` container (chat/serve) or in the separate training profile.
 
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -30,7 +30,7 @@ RUN uv venv /opt/venv --python 3.12 \
         "prometheus-client>=0.20"
 
 # ----- runtime stage -----
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
