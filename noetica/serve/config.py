@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # Override per-deploy: a GPU host can drop this back to 60s.
     ollama_timeout_seconds: float = Field(default=600.0, alias="OLLAMA_TIMEOUT_SECONDS")
 
+    # Transient-failure retry. A cold or just-restarted Ollama refuses
+    # connections for a moment; rather than 503 on the first failure we retry
+    # the connection with exponential backoff (delay = base_delay * 2**attempt).
+    # Only connection failures are retried — a slow generation still fails at
+    # the timeout above. Set retries to 0 to disable.
+    ollama_max_retries: int = Field(default=2, alias="OLLAMA_MAX_RETRIES")
+    ollama_retry_base_delay: float = Field(default=0.5, alias="OLLAMA_RETRY_BASE_DELAY")
+
     # Models
     model_text: str = Field(default="qwen2.5:7b-instruct", alias="MODEL_TEXT")
     # The Ollama tag is `qwen2.5vl` (no hyphen). Only invoked when a caller

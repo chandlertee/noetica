@@ -245,17 +245,26 @@ async def with_retry(
     retries: int = 2,
     base_delay: float = 1.0,
 ):
-    """Run an async callable with exponential backoff on OllamaUnavailable/Timeout."""
+    """Run an async callable with exponential backoff on OllamaUnavailable.
+
+    Only connection failures are retried — a cold or just-started Ollama
+    refuses connections for a moment, and a short backoff lets it come up
+    rather than failing the request with an immediate 503.
+
+    Timeouts are deliberately *not* retried: a slow generation should surface
+    as a 504 rather than be re-run, which would only multiply an already-long
+    wait. Pass ``retries=0`` to disable retrying entirely.
+    """
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
         try:
             return await coro_fn()
-        except (OllamaUnavailable, OllamaTimeout) as e:
+        except OllamaUnavailable as e:
             last_exc = e
             if attempt >= retries:
                 break
             delay = base_delay * (2**attempt)
-            logger.warning("ollama call failed (%s); retrying in %.1fs", e, delay)
+            logger.warning("ollama unavailable (%s); retrying in %.1fs", e, delay)
             await asyncio.sleep(delay)
     assert last_exc is not None
     raise last_exc

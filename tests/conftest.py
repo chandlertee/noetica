@@ -23,6 +23,8 @@ def _isolated_cache():
     os.environ["NOETICA_CACHE_DIR"] = str(tmp)
     os.environ["OLLAMA_URL"] = "http://test-ollama:11434"
     os.environ["NOETICA_CACHE_ENABLED"] = "false"
+    # Exercise the retry path without real backoff sleeps slowing the suite.
+    os.environ["OLLAMA_RETRY_BASE_DELAY"] = "0"
     # Keep test output readable rather than emitting JSON access logs.
     os.environ["NOETICA_JSON_LOGS"] = "false"
     yield tmp
