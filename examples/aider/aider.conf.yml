@@ -1,0 +1,24 @@
+# Aider config template for the Noetica stack — drives your repos with a LOCAL
+# model via Ollama. Nothing leaves your machine.
+#
+# Use it one of two ways:
+#   • Global default:  cp examples/aider/aider.conf.yml ~/.aider.conf.yml
+#   • Per project:     cp examples/aider/aider.conf.yml /your/project/.aider.conf.yml
+# Precedence: command-line flags > project file > home file. Override any time
+# with `aider --model ...` or `/model <name>` inside a session.
+#
+# Docs: https://aider.chat/docs/config/aider_conf.html
+
+# 7B coder model is the sweet spot for a 16 GB Mac. The `ollama_chat/` prefix
+# (not `ollama/`) is required so aider uses Ollama's chat endpoint.
+# If you build the bundled Modelfile, swap this for: ollama_chat/noetica-coder
+model: ollama_chat/qwen2.5-coder:7b
+
+# Point aider at the local Ollama daemon without needing a shell export.
+set-env:
+  - OLLAMA_API_BASE=http://127.0.0.1:11434
+
+# Uncomment to keep commits under your own git identity (no "(aider)" appended
+# to the author/committer name):
+# attribute-author: false
+# attribute-committer: false

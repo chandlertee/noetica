@@ -46,30 +46,43 @@ ollama pull qwen2.5-coder:7b      # ~4.7 GB; match the size to your RAM (table a
 
 ## 3 · Point Aider at local Ollama
 
-Two gotchas dominate local setups, both handled by config files in your home dir:
+Two gotchas dominate local setups:
 
 1. **The endpoint** — Aider reaches Ollama via `OLLAMA_API_BASE`.
 2. **The context window** — Ollama defaults to a tiny **2048**-token context that
-   starves an agentic loop. Aider forwards `num_ctx` to Ollama, so set it.
+   starves an agentic loop (and RAG). It must be raised.
 
-`~/.aider.conf.yml`:
+This repo ships config so you don't have to hand-write any of it. Pick one path:
 
-```yaml
-model: ollama_chat/qwen2.5-coder:7b   # note: ollama_chat/ (chat endpoint), not ollama/
-set-env:
-  - OLLAMA_API_BASE=http://127.0.0.1:11434
-# Keep commits under your own git identity:
-attribute-author: false
-attribute-committer: false
+### Option A — bake the context into the model (recommended; fixes *all three doors*)
+
+[`examples/models/qwen2.5-coder.Modelfile`](models/qwen2.5-coder.Modelfile) sets
+`num_ctx` on the model itself, so chat, Aider, and the serve API all inherit it —
+no per-tool tweaking:
+
+```sh
+ollama create noetica-coder -f examples/models/qwen2.5-coder.Modelfile
+ollama show noetica-coder --parameters      # confirm: num_ctx 16384
 ```
 
-`~/.aider.model.settings.yml`:
+Then use `noetica-coder` everywhere — in Open WebUI's model picker, as
+`MODEL_TEXT=noetica-coder` for the API, and in Aider via the template below.
 
-```yaml
-- name: ollama_chat/qwen2.5-coder:7b
-  extra_params:
-    num_ctx: 16384   # 8192 if RAM is tight; 32768 if you can spare it
+### Option B — Aider-only config
+
+Copy the committed templates (override defaults any time with `aider --model ...`
+or `/model` in a session — precedence is flag > project file > home file):
+
+```sh
+cp examples/aider/aider.conf.yml          ~/.aider.conf.yml
+cp examples/aider/aider.model.settings.yml ~/.aider.model.settings.yml
 ```
+
+- [`examples/aider/aider.conf.yml`](aider/aider.conf.yml) — model + `OLLAMA_API_BASE`
+  (and an optional toggle to keep commits under your own git identity).
+- [`examples/aider/aider.model.settings.yml`](aider/aider.model.settings.yml) —
+  the `num_ctx` knob. If you did Option A, point the conf at `noetica-coder` and
+  delete this file — the model already carries the context.
 
 ## 4 · Run it on a project
 
