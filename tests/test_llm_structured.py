@@ -145,6 +145,25 @@ def test_structured_retries_cold_ollama_then_succeeds(client, mock_ollama):
     assert resp.json()["data"]["title"] == "Dune"
 
 
+def test_structured_504_on_timeout_is_not_retried(client, mock_ollama):
+    """A slow generation surfaces as 504 immediately — timeouts are not retried."""
+    from httpx import ReadTimeout
+
+    calls = {"n": 0}
+
+    def _slow(req):
+        calls["n"] += 1
+        raise ReadTimeout("too slow")
+
+    mock_ollama.post("/api/generate").mock(side_effect=_slow)
+    resp = client.post(
+        "/v1/llm/structured",
+        json={"prompt": "x", "response_schema": MOVIE_SCHEMA, "cache": False},
+    )
+    assert resp.status_code == 504
+    assert calls["n"] == 1  # called once, not re-run
+
+
 def test_structured_overrides_default_model(client, mock_ollama):
     """Request can pin a specific model name."""
     captured: dict = {}
