@@ -17,7 +17,6 @@ import logging
 from typing import Any
 
 import httpx
-from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -202,9 +201,10 @@ class OllamaClient:
     ):
         """Retry/repair driver for the structured-output path.
 
-        `validate` is an arbitrary callback so the driver stays decoupled from
-        how the schema is expressed (JSON Schema today; a pydantic validator
-        would slot in the same way).
+        `validate` parses+checks the raw model output and either returns the
+        validated value or raises ValueError (json.JSONDecodeError is a
+        ValueError subclass) describing what was wrong, which we feed back to
+        the model on the repair attempt.
         """
         last_raw = ""
         last_err: str | None = None
@@ -229,9 +229,9 @@ class OllamaClient:
             last_raw = raw
             try:
                 return validate(raw)
-            except (json.JSONDecodeError, ValueError, ValidationError) as e:
-                # ValidationError comes from pydantic; ValueError from our JSON Schema path.
-                last_err = f"schema: {e.errors()[:3]}" if isinstance(e, ValidationError) else str(e)
+            except ValueError as e:
+                # Bad JSON or a schema mismatch; both surface as ValueError.
+                last_err = str(e)
                 logger.warning(
                     "ollama output failed validation (attempt %d): %s", attempt + 1, last_err
                 )
