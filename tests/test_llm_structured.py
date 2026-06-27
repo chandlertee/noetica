@@ -123,6 +123,47 @@ def test_structured_503_when_ollama_unreachable(client, mock_ollama):
     assert resp.status_code == 503
 
 
+def test_structured_retries_cold_ollama_then_succeeds(client, mock_ollama):
+    """First connection is refused (cold Ollama); the retry succeeds → 200, not 503."""
+    from httpx import ConnectError
+
+    calls = {"n": 0}
+
+    def _flaky(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ConnectError("connection refused")
+        return Response(200, json=ollama_generate_response({"title": "Dune", "year": 1984}))
+
+    mock_ollama.post("/api/generate").mock(side_effect=_flaky)
+    resp = client.post(
+        "/v1/llm/structured",
+        json={"prompt": "x", "response_schema": MOVIE_SCHEMA, "cache": False},
+    )
+    assert resp.status_code == 200, resp.text
+    assert calls["n"] == 2  # one failure + one successful retry
+    assert resp.json()["data"]["title"] == "Dune"
+
+
+def test_structured_504_on_timeout_is_not_retried(client, mock_ollama):
+    """A slow generation surfaces as 504 immediately — timeouts are not retried."""
+    from httpx import ReadTimeout
+
+    calls = {"n": 0}
+
+    def _slow(req):
+        calls["n"] += 1
+        raise ReadTimeout("too slow")
+
+    mock_ollama.post("/api/generate").mock(side_effect=_slow)
+    resp = client.post(
+        "/v1/llm/structured",
+        json={"prompt": "x", "response_schema": MOVIE_SCHEMA, "cache": False},
+    )
+    assert resp.status_code == 504
+    assert calls["n"] == 1  # called once, not re-run
+
+
 def test_structured_overrides_default_model(client, mock_ollama):
     """Request can pin a specific model name."""
     captured: dict = {}
