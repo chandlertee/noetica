@@ -19,7 +19,10 @@ WORKDIR /srv
 
 # Install deps in their own layer so source changes don't bust the cache.
 COPY pyproject.toml ./
-RUN uv venv /opt/venv --python 3.12 \
+# No --python here on purpose: uv uses the base image's interpreter, so the
+# `FROM python:X.Y-slim` line above is the single source of truth for the
+# version. A base-image bump then "just works" without editing this line too.
+RUN uv venv /opt/venv \
  && VIRTUAL_ENV=/opt/venv uv pip install --no-cache \
         "fastapi>=0.115" \
         "uvicorn[standard]>=0.30" \
