@@ -21,6 +21,7 @@ from noetica.serve.clients.ollama import (
     OllamaSchemaError,
     OllamaTimeout,
     OllamaUnavailable,
+    with_retry,
 )
 from noetica.serve.config import Settings, get_settings
 from noetica.serve.deps import get_ollama
@@ -58,13 +59,20 @@ async def structured(
             return StructuredResponse(data=cached, model=model, cached=True)
 
     try:
-        data = await client.generate_with_json_schema(
-            model,
-            req.prompt,
-            req.response_schema,
-            images=req.images or None,
-            options=req.options,
-            max_attempts=req.max_attempts,
+        # Retry only a cold/unreachable Ollama (connection refused); schema
+        # repair is handled inside generate_with_json_schema, and timeouts
+        # are surfaced as 504 rather than re-run.
+        data = await with_retry(
+            lambda: client.generate_with_json_schema(
+                model,
+                req.prompt,
+                req.response_schema,
+                images=req.images or None,
+                options=req.options,
+                max_attempts=req.max_attempts,
+            ),
+            retries=settings.ollama_max_retries,
+            base_delay=settings.ollama_retry_base_delay,
         )
     except OllamaUnavailable as e:
         raise HTTPException(status_code=503, detail=f"ollama unavailable: {e}") from e

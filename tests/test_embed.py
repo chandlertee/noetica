@@ -30,3 +30,22 @@ def test_embed_503_when_ollama_unreachable(client, mock_ollama):
     mock_ollama.post("/api/embed").mock(side_effect=ConnectError("down"))
     resp = client.post("/v1/embed", json={"texts": ["x"]})
     assert resp.status_code == 503
+
+
+def test_embed_retries_cold_ollama_then_succeeds(client, mock_ollama):
+    """First connection is refused; the retry succeeds → 200, not 503."""
+    from httpx import ConnectError, Response
+
+    calls = {"n": 0}
+
+    def _flaky(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ConnectError("connection refused")
+        return Response(200, json={"embeddings": [[0.1, 0.2]]})
+
+    mock_ollama.post("/api/embed").mock(side_effect=_flaky)
+    resp = client.post("/v1/embed", json={"texts": ["x"]})
+    assert resp.status_code == 200, resp.text
+    assert calls["n"] == 2
+    assert resp.json()["dim"] == 2

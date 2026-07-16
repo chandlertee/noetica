@@ -1,7 +1,7 @@
 """Async HTTP client for Ollama.
 
 We use Ollama's `/api/generate` with `format: "json"` so the model is forced
-into valid JSON. We then validate against a caller-supplied pydantic model.
+into valid JSON. We then validate against a caller-supplied JSON Schema.
 If validation fails, we ask the model once more to repair its output before
 giving up — this is cheaper and more reliable than tolerating loose JSON.
 
@@ -14,14 +14,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, TypeVar
+from typing import Any
 
 import httpx
-from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T", bound=BaseModel)
 
 
 class OllamaError(Exception):
@@ -143,40 +140,6 @@ class OllamaClient:
 
     # ----- structured -----
 
-    async def generate_structured(
-        self,
-        model: str,
-        prompt: str,
-        schema: type[T],
-        *,
-        images: list[str] | None = None,
-        options: dict[str, Any] | None = None,
-        max_attempts: int = 2,
-    ) -> T:
-        """Generate JSON output and validate against a *pydantic* `schema`.
-
-        Convenience path for callers that already have a pydantic class. The
-        public API (/v1/llm/structured) uses `generate_with_json_schema`, which
-        takes a raw JSON Schema dict instead.
-
-        On a parse/validation failure, makes one repair attempt where the
-        previous output is shown back to the model with the error. After
-        `max_attempts` total tries, raises OllamaSchemaError.
-        """
-
-        def validate(raw: str):
-            data = json.loads(raw)
-            return schema.model_validate(data)
-
-        return await self._structured_loop(
-            model,
-            prompt,
-            validate,
-            images=images,
-            options=options,
-            max_attempts=max_attempts,
-        )
-
     async def generate_with_json_schema(
         self,
         model: str,
@@ -236,7 +199,13 @@ class OllamaClient:
         max_attempts: int = 2,
         ollama_format: Any = None,
     ):
-        """Shared retry/repair driver for both structured-output paths."""
+        """Retry/repair driver for the structured-output path.
+
+        `validate` parses+checks the raw model output and either returns the
+        validated value or raises ValueError (json.JSONDecodeError is a
+        ValueError subclass) describing what was wrong, which we feed back to
+        the model on the repair attempt.
+        """
         last_raw = ""
         last_err: str | None = None
         for attempt in range(max_attempts):
@@ -260,9 +229,9 @@ class OllamaClient:
             last_raw = raw
             try:
                 return validate(raw)
-            except (json.JSONDecodeError, ValueError, ValidationError) as e:
-                # ValidationError comes from pydantic; ValueError from our JSON Schema path.
-                last_err = f"schema: {e.errors()[:3]}" if isinstance(e, ValidationError) else str(e)
+            except ValueError as e:
+                # Bad JSON or a schema mismatch; both surface as ValueError.
+                last_err = str(e)
                 logger.warning(
                     "ollama output failed validation (attempt %d): %s", attempt + 1, last_err
                 )
@@ -276,17 +245,26 @@ async def with_retry(
     retries: int = 2,
     base_delay: float = 1.0,
 ):
-    """Run an async callable with exponential backoff on OllamaUnavailable/Timeout."""
+    """Run an async callable with exponential backoff on OllamaUnavailable.
+
+    Only connection failures are retried — a cold or just-started Ollama
+    refuses connections for a moment, and a short backoff lets it come up
+    rather than failing the request with an immediate 503.
+
+    Timeouts are deliberately *not* retried: a slow generation should surface
+    as a 504 rather than be re-run, which would only multiply an already-long
+    wait. Pass ``retries=0`` to disable retrying entirely.
+    """
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
         try:
             return await coro_fn()
-        except (OllamaUnavailable, OllamaTimeout) as e:
+        except OllamaUnavailable as e:
             last_exc = e
             if attempt >= retries:
                 break
             delay = base_delay * (2**attempt)
-            logger.warning("ollama call failed (%s); retrying in %.1fs", e, delay)
+            logger.warning("ollama unavailable (%s); retrying in %.1fs", e, delay)
             await asyncio.sleep(delay)
     assert last_exc is not None
     raise last_exc
