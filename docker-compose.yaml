@@ -94,6 +94,10 @@ services:
       # First-run convenience: no login wall. Set WEBUI_AUTH=True before any
       # LAN exposure (see SECURITY.md).
       - WEBUI_AUTH=${WEBUI_AUTH:-False}
+      # Default model for new chats (must exist in Ollama). Empty → Open WebUI
+      # lists every model and you pick one. Set e.g. noetica-coder to mirror the
+      # API's MODEL_TEXT, so chat and the API default to the same model.
+      - DEFAULT_MODELS=${DEFAULT_MODELS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
