@@ -30,6 +30,12 @@ curl localhost:8001/v1/health
   chats over your own documents (built-in RAG), with a custom model preset and a
   saved prompt. Fully local.
 
+## Code with it — agentic coding
+
+- [`agentic_coding.md`](agentic_coding.md) — drive a real coding agent
+  ([Aider](https://aider.chat)) over your own repo with a local model: it reads
+  files, edits them, and commits. Talks straight to Ollama. Fully local.
+
 ## Extend it — train → serve → chat → eval
 
 - [`finetune_to_serve.md`](finetune_to_serve.md) — the full loop: QLoRA fine-tune →

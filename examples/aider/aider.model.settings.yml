@@ -1,0 +1,22 @@
+# Per-model settings template for the Noetica stack.
+#   cp examples/aider/aider.model.settings.yml ~/.aider.model.settings.yml
+#   (or drop it in a project root as .aider.model.settings.yml)
+#
+# The one knob that matters for local models is `num_ctx`: Ollama defaults to a
+# tiny 2048-token context that starves an agentic loop. aider forwards num_ctx
+# straight to Ollama, so set it here.
+#
+# NOTE: if you build the bundled Modelfile (examples/models/qwen2.5-coder.Modelfile),
+# num_ctx is baked into the model itself and you can delete this file entirely.
+#
+# 16384 is a safe balance for a 16 GB Mac (weights + KV cache + headroom).
+# Drop to 8192 under memory pressure; raise to 32768 if you close other apps.
+# Docs: https://aider.chat/docs/llms/ollama.html
+
+- name: ollama_chat/qwen2.5-coder:7b
+  extra_params:
+    num_ctx: 16384
+
+- name: ollama_chat/qwen2.5-coder:1.5b
+  extra_params:
+    num_ctx: 8192

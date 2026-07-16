@@ -1,0 +1,25 @@
+# A coding model with a usable context window, baked in once for ALL three doors.
+#
+# Ollama defaults num_ctx to 2048, which starves agentic coding and RAG alike.
+# Setting it here means the resulting model carries the larger context wherever
+# it's used — Open WebUI chat, Aider, and the serve API — no per-tool tweaking.
+#
+# Build it:
+#     ollama create noetica-coder -f examples/models/qwen2.5-coder.Modelfile
+#
+# Then use `noetica-coder` everywhere:
+#   • Chat:  pick it in Open WebUI's model dropdown
+#   • Aider: model: ollama_chat/noetica-coder   (drop num_ctx from aider settings)
+#   • API:   MODEL_TEXT=noetica-coder
+#
+# Match the base tag to your RAM (see examples/agentic_coding.md):
+#   8 GB → qwen2.5-coder:3b   ·   16 GB → :7b   ·   32 GB → :14b   ·   64 GB+ → :32b
+
+FROM qwen2.5-coder:7b
+
+# 16384 suits a 16 GB Mac. Lower to 8192 under memory pressure; 32768 if you can
+# spare the RAM (KV cache grows with context).
+PARAMETER num_ctx 16384
+
+# Low temperature keeps code edits deterministic.
+PARAMETER temperature 0.2
